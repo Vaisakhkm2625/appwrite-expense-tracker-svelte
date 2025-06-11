@@ -1,3 +1,30 @@
+# Appwrite Todo
+
+Tutorial  - https://appwrite.io/blog/post/build-fullstack-svelte-appwrite
+
+## Appwrite cli
+
+ https://appwrite.io/docs/tooling/command-line/installation
+
+install as dev dependency using pnpm
+```bash
+pnpm install -D appwrite
+```
+
+add to `packages.json` scripts section
+
+```json
+{
+    ...
+    "scripts": {
+        "appwrite": "appwrite"
+    },
+    ...
+}
+```
+
+now run using `pnpm run appwrite -v`
+
 # sv
 
 Everything you need to build a Svelte project, powered by [`sv`](https://github.com/sveltejs/cli).
@@ -36,3 +63,5 @@ npm run build
 You can preview the production build with `npm run preview`.
 
 > To deploy your app, you may need to install an [adapter](https://svelte.dev/docs/kit/adapters) for your target environment.
+
+
