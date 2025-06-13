@@ -28,6 +28,7 @@
 		} catch (err) {
             console.error("Auth Error: ",err);
             console.log(err);
+            error = err
         } finally {
             loading = false;
         }
@@ -49,9 +50,7 @@
 		</div>
 
 		{#if error}
-			<div class="auth-error">
-				{error}
-			</div>
+            <article > <span color="red">{error}</span></article>
 		{/if}
 
 		<form on:submit|preventDefault={handleSubmit} class="auth-form">
@@ -92,7 +91,9 @@
 					class="input form-input-container"
 					placeholder="••••••••"
 				/>
+
 			</div>
+            {error}
 
 			<div>
 				<button
