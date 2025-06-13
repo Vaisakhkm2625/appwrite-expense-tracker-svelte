@@ -9,10 +9,10 @@
 	import { currentUser } from '$lib/stores/auth.svelte';
 
 	let expenses = $state([]);
+    let edit = $state([]);
 
 	let expense_form = $state({
 		open: false,
-		edit: null,
 		data: {
 			currentAmount: 0.0,
 			currentDescription: '',
@@ -82,28 +82,50 @@
 			updatedAt: now
 		};
 
-		if (expense_form.edit === null) {
-			await databases.createDocument(
-				DATABASE_ID,
-				EXPENSES_COLLECTION_ID,
-				ID.unique(),
-				expenseData,
-				[
-					Permission.read(Role.user(currentUser.user.$id)),
-					Permission.update(Role.user(currentUser.user.$id)),
-					Permission.delete(Role.user(currentUser.user.$id))
-				]
-			);
+		if (edit === null) {
+            try {
+                await databases.createDocument(
+                    DATABASE_ID,
+                    EXPENSES_COLLECTION_ID,
+                    ID.unique(),
+                    expenseData,
+                    [
+                        Permission.read(Role.user(currentUser.user.$id)),
+                        Permission.update(Role.user(currentUser.user.$id)),
+                        Permission.delete(Role.user(currentUser.user.$id))
+                    ]
+                );
+            } catch (error) {
+
+                console.error("error in creating",error);
+
+            }
 		} else {
-			await databases.updateDocument(DATABASE_ID, EXPENSES_COLLECTION_ID, expense_form.edit, {
-				...expenseData,
+
+            try {
+
+
+			let result =  await databases.updateDocument(DATABASE_ID, EXPENSES_COLLECTION_ID, edit["$id"], {
+				//...expenseData,
+                category: expense_form.data.currentCategory,
+                description: expense_form.data.currentDescription,
+                amount: expense_form.data.currentAmount, //parseFloat(currentAmount),
 				updatedAt: now
 			});
 
+                //edit["amount"] = 101.0;
+            Object.assign(edit,result)
 
-			console.log('update it');
+			console.log('update it',result);
+			console.log('form',edit);
+                
+
+            } catch (error) {
+                console.error("error in updating it",error);
+
+            } 
 		}
-		await fetchExpenses();
+		//await fetchExpenses();
 		expense_form.open = false;
 
 		expense_form.data.currentAmount = 0.0;
@@ -116,8 +138,7 @@
 			await databases.deleteDocument(DATABASE_ID, EXPENSES_COLLECTION_ID, expenseId);
 			await fetchExpenses();
 		} catch (error) {
-			console.log(error);
-		}
+			console.log(error); }
 	}
 </script>
 
@@ -150,8 +171,7 @@
 			<button
 				aria-label="Close"
 				rel="prev"
-				onclick={() => {
-					expense_form.open = false;
+				onclick={() => { expense_form.open = false;
 				}}
 			></button>
 			<p>
@@ -160,6 +180,8 @@
 		</header>
 
 		<form onsubmit={handleSubmit}>
+
+            {#if edit}
 			<label for="amount">Amount</label>
 			<input
 				type="number"
@@ -170,7 +192,7 @@
 			/>
 
 			<label for="description">Description</label>
-			<input type="text" id="description" bind:value={expense_form.data.currentDescription} />
+            <input type="text" id="description" bind:value={expense_form.data.currentDescription}/>
 
 			<label for="categroy">Categroy</label>
 			<select id="categroy" bind:value={expense_form.data.currentCategory}>
@@ -185,6 +207,8 @@
 				<button type="button"> cancel</button>
 				<button type="submit">Submit</button>
 			</div>
+
+            {/if}
 		</form>
 	</article>
 </dialog>
@@ -196,6 +220,9 @@
 </div>
 
 <!-- expense list-->
+
+
+{JSON.stringify(edit)}
 
 {#if loading}
 	loading...
@@ -210,6 +237,8 @@
 			</tr>
 		</thead>
 
+
+
 		<tbody>
 			{#each expenses.documents as expense (expense['$id'])}
 				<tr>
@@ -218,7 +247,7 @@
 							<button
 								onclick={() => {
 									expense_form.open = true;
-									expense_form.edit = expense['$id'];
+									edit = expense;///['$id'];
 									expense_form.data.currentAmount = expense['amount'];
 									expense_form.data.currentDescription = expense['description'];
 									expense_form.data.currentCategory = expense['category'];
