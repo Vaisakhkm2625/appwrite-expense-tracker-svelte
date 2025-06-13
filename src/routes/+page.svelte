@@ -9,7 +9,7 @@
 	import { currentUser } from '$lib/stores/auth.svelte';
 
 	let expenses = $state([]);
-    let edit = $state([]);
+	let edit = $state(null);
 
 	let expense_form = $state({
 		open: false,
@@ -33,11 +33,30 @@
 	let loading = $state(false);
 	let error = $state('');
 
-	let stats = {
-		total: 0,
-		thisMonth: 0,
-		thisWeek: 0
-	};
+	const now = new Date();
+	const thisMonth = new Date(now.getFullYear(), now.getMonth(), 1);
+	const thisWeek = new Date(now.setDate(now.getDate() - now.getDay()));
+
+    let total = $derived.by(() => {
+        const docs = expenses.documents ?? [];
+        return docs.reduce((sum, exp) => sum + exp.amount, 0);
+    });
+
+    let thisWeekStat = $derived.by(()=>{
+        const docs = expenses.documents ?? [];
+        return docs
+            .filter((exp) => new Date(exp.$createdAt) >= thisWeek)
+            .reduce((sum, exp) => sum + parseFloat(exp.amount), 0)
+
+    })
+
+    let thisMonthStat = $derived.by(()=>{
+        const docs = expenses.documents ?? [];
+        return docs
+            .filter((exp) => new Date(exp.$createdAt) >= thisMonth)
+            .reduce((sum, exp) => sum + parseFloat(exp.amount), 0)
+
+    })
 
 	const categroies = [
 		{ id: 0, value: 'food' },
@@ -69,6 +88,7 @@
 
 	async function handleSubmit(event) {
 		event.preventDefault();
+		console.log(edit);
 
 		const now = new Date().toISOString();
 
@@ -83,47 +103,46 @@
 		};
 
 		if (edit === null) {
-            try {
-                await databases.createDocument(
-                    DATABASE_ID,
-                    EXPENSES_COLLECTION_ID,
-                    ID.unique(),
-                    expenseData,
-                    [
-                        Permission.read(Role.user(currentUser.user.$id)),
-                        Permission.update(Role.user(currentUser.user.$id)),
-                        Permission.delete(Role.user(currentUser.user.$id))
-                    ]
-                );
-            } catch (error) {
+			try {
+				const result = await databases.createDocument(
+					DATABASE_ID,
+					EXPENSES_COLLECTION_ID,
+					ID.unique(),
+					expenseData,
+					[
+						Permission.read(Role.user(currentUser.user.$id)),
+						Permission.update(Role.user(currentUser.user.$id)),
+						Permission.delete(Role.user(currentUser.user.$id))
+					]
+				);
 
-                console.error("error in creating",error);
-
-            }
+				expenses.documents.push(result);
+			} catch (error) {
+				console.error('error in creating', error);
+			}
 		} else {
+			try {
+				let result = await databases.updateDocument(
+					DATABASE_ID,
+					EXPENSES_COLLECTION_ID,
+					edit['$id'],
+					{
+						//...expenseData,
+						category: expense_form.data.currentCategory,
+						description: expense_form.data.currentDescription,
+						amount: expense_form.data.currentAmount, //parseFloat(currentAmount),
+						updatedAt: now
+					}
+				);
 
-            try {
+				//edit["amount"] = 101.0;
+				Object.assign(edit, result);
 
-
-			let result =  await databases.updateDocument(DATABASE_ID, EXPENSES_COLLECTION_ID, edit["$id"], {
-				//...expenseData,
-                category: expense_form.data.currentCategory,
-                description: expense_form.data.currentDescription,
-                amount: expense_form.data.currentAmount, //parseFloat(currentAmount),
-				updatedAt: now
-			});
-
-                //edit["amount"] = 101.0;
-            Object.assign(edit,result)
-
-			console.log('update it',result);
-			console.log('form',edit);
-                
-
-            } catch (error) {
-                console.error("error in updating it",error);
-
-            } 
+				console.log('update it', result);
+				edit = null;
+			} catch (error) {
+				console.error('error in updating it', error);
+			}
 		}
 		//await fetchExpenses();
 		expense_form.open = false;
@@ -138,23 +157,25 @@
 			await databases.deleteDocument(DATABASE_ID, EXPENSES_COLLECTION_ID, expenseId);
 			await fetchExpenses();
 		} catch (error) {
-			console.log(error); }
+			console.log(error);
+		}
 	}
 </script>
 
 <div>
+<div>
 	{#if currentUser.user}
-		welcome {currentUser.user.name}
+		<h1>welcome {currentUser.user.name}</h1><br>
 	{/if}
 </div>
 
-<div>
+<div role="group">
 	<h3>stats overview</h3>
-	total expense:<br />
-	this month expense: <br />
-	this week expense:<br />
+    <article> total expense: {total} </article>
+    <article>this month expense:{thisMonthStat} </article>
+    <article>this week expense: {thisWeekStat} </article>
 </div>
-
+</div><br><br>
 <!---->
 
 <button
@@ -171,7 +192,8 @@
 			<button
 				aria-label="Close"
 				rel="prev"
-				onclick={() => { expense_form.open = false;
+				onclick={() => {
+					expense_form.open = false;
 				}}
 			></button>
 			<p>
@@ -180,8 +202,6 @@
 		</header>
 
 		<form onsubmit={handleSubmit}>
-
-            {#if edit}
 			<label for="amount">Amount</label>
 			<input
 				type="number"
@@ -192,7 +212,7 @@
 			/>
 
 			<label for="description">Description</label>
-            <input type="text" id="description" bind:value={expense_form.data.currentDescription}/>
+			<input type="text" id="description" bind:value={expense_form.data.currentDescription} />
 
 			<label for="categroy">Categroy</label>
 			<select id="categroy" bind:value={expense_form.data.currentCategory}>
@@ -207,22 +227,14 @@
 				<button type="button"> cancel</button>
 				<button type="submit">Submit</button>
 			</div>
-
-            {/if}
 		</form>
 	</article>
 </dialog>
 
-<div>
-	<h3>expense form</h3>
-	<!-- add expense button -->
-	<!-- add expense form -->
-</div>
 
 <!-- expense list-->
 
-
-{JSON.stringify(edit)}
+<!-- {JSON.stringify(edit)} -->
 
 {#if loading}
 	loading...
@@ -237,8 +249,6 @@
 			</tr>
 		</thead>
 
-
-
 		<tbody>
 			{#each expenses.documents as expense (expense['$id'])}
 				<tr>
@@ -247,7 +257,7 @@
 							<button
 								onclick={() => {
 									expense_form.open = true;
-									edit = expense;///['$id'];
+									edit = expense; ///['$id'];
 									expense_form.data.currentAmount = expense['amount'];
 									expense_form.data.currentDescription = expense['description'];
 									expense_form.data.currentCategory = expense['category'];
