@@ -1,73 +1,73 @@
-
 <script>
+	import { page } from '$app/state';
+	import { onMount } from 'svelte';
 
-import {page } from "$app/state";
-import {onMount} from "svelte";
+	import { currentUser, initAuth, logout } from '$lib/stores/auth.svelte';
+	import { goto } from '$app/navigation';
 
-import {currentUser,initAuth,logout} from "$lib/stores/auth.svelte"
-import {goto} from "$app/navigation";
+	onMount(async () => {
+		try {
+			//const currentUser = await initAuth();
+			await initAuth();
 
+			if (!currentUser.user && !page.url.pathname.startsWith('/auth')) {
+				goto('/auth');
+			}
+			if (currentUser.user && page.url.pathname.startsWith('/auth')) {
+				goto('/');
+			}
+		} catch (error) {
+			if (!page.url.pathname.startsWith('/auth')) {
+				goto('/auth');
+			}
+		}
+	});
 
+	$inspect(currentUser);
 
-onMount(async ()=> {
-    try {
-        //const currentUser = await initAuth();
-
-        await initAuth();
-        if(!currentUser.user && !page.url.pathname.startsWith("/auth")){
-            goto("/auth")
-        } 
-        if(currentUser.user && page.url.pathname.startsWith("/auth")){
-            goto("/")
-        }
-
-    } catch (error) {
-
-        if(!page.url.pathname.startsWith("/auth")){
-            goto("/auth")
-        }
-    }
-})
-
-$inspect(currentUser)
-
-const handleLogout = async () => {
-    try {
-        await logout()
-        goto('/auth')
-    } catch (error) {
-        console.error('Logout failed:', error)
-    }
-}
-
-
+	const handleLogout = async () => {
+		try {
+			await logout();
+			goto('/auth');
+		} catch (error) {
+			console.error('Logout failed:', error);
+		}
+	};
 </script>
 
 <header>
-    <nav>
-        <b>expense tracker</b>
+	<nav style="border-bottom: 1px white solid">
+		<ul>
+			<li><strong>Expense Tracker</strong></li>
+		</ul>
+		<!-- {JSON.stringify(currentUser)} -->
 
-        <!-- {JSON.stringify(currentUser)} -->
-
-        {#if currentUser.user}
-            username: {currentUser.user.email}
-            <button onclick={handleLogout}>Logout</button>
-        {/if}
-
-    </nav>
+		<ul>
+			<li>
+				{#if currentUser.user}
+					<details class="dropdown">
+						<summary>
+							{currentUser.user.name}
+						</summary>
+						<ul dir="rtl">
+							<li><a onclick={handleLogout}>Logout</a></li>
+							<li><a href="/profile">profile</a></li>
+						</ul>
+					</details>
+				{/if}
+			</li>
+		</ul>
+	</nav>
 </header>
 
 <main class="container">
-    <div>
-
-
-        {#if !page.url.pathname.startsWith('/auth')}
-            main page
-            <slot />
-        {:else}
-            login page
-            <slot />
-        {/if}
-
-    </div>
+	<div>
+		{#if !page.url.pathname.startsWith('/auth')}
+			<!-- main page -->
+			<slot />
+		{:else}
+			<!-- login page -->
+			<slot />
+		{/if}
+	</div>
 </main>
